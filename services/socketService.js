@@ -19,6 +19,7 @@ function _onConnection (socket) {
     socket.on("HOST_GAME", hostGame);
     socket.on("JOIN_GAME", joinGame);
 
+    // create a new room and join it
     function hostGame (data) {
         currentPlayerId = data.playerId;
 
@@ -37,8 +38,11 @@ function _onConnection (socket) {
             allPlayers: allOnlinePlayers,
             rooms: rooms
         });
+
+        joinSession(currentPlayerId, currentRoomId);
     }
 
+    // join room of existing player
     function joinGame (data) {
         let hostPlayerId = data.hostPlayerId;
 
@@ -61,6 +65,8 @@ function _onConnection (socket) {
                     rooms: rooms
                 });
 
+                joinSession(currentPlayerId, currentRoomId);
+
             } else {
                 socket.emit("SESSION_NOT_FOUND", {
                     msg: "No non-empty session exists with id " + currentRoomId
@@ -72,6 +78,17 @@ function _onConnection (socket) {
                 msg: "Could not find host player with id " + hostPlayerId
             });
         }
+    }
+
+    // add player to room
+    function joinSession (playerId, roomId) {
+        // join currentRoomId room
+        socket.join(roomId);
+
+        // inform everyone in currentRoomId of new joinee
+        io.sockets.in(roomId).emit("JOINED_SESSION", {
+            msg: playerId + " joined " + roomId
+        });
     }
 }
 
