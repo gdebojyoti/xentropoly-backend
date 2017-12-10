@@ -12,6 +12,7 @@ const server = express()
   .use((req, res) => res.sendFile(INDEX) )
   .listen(PORT, () => console.log(`Listening on ${ PORT }`));
 
-var socketService = require('./services/socketService.js')(server);
+var jsonData = require("./data/international.json"),
+    socketService = require('./services/socketService.js')(server, jsonData);
 
 })();
