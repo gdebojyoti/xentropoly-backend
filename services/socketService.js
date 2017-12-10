@@ -26,11 +26,32 @@ function _onConnection (socket) {
         currentPlayerId;
 
     console.log("A user has connected");
-    socket.on("disconnect", () => console.log('Client disconnected'));
+    socket.on("disconnect", onDisconnect);
 
     socket.on("HOST_GAME", hostGame);
     socket.on("JOIN_GAME", joinGame);
     socket.on("TRIGGER_TURN", triggerTurn);
+
+    // on client disconnect
+    function onDisconnect () {
+        console.log('Client disconnected', currentPlayerId);
+
+        // remove current player from current room
+        if (rooms[currentRoomId] && rooms[currentRoomId].players[currentPlayerId]) {
+            delete rooms[currentRoomId].players[currentPlayerId];
+        }
+
+        // remove corresponding entry from allOnlinePlayers
+        if (allOnlinePlayers[currentPlayerId] && allOnlinePlayers[currentPlayerId].rooms) {
+            // remove currentRoomId entry from current player in allOnlinePlayers list
+            allOnlinePlayers[currentPlayerId].rooms.splice(allOnlinePlayers[currentPlayerId].rooms.indexOf(currentRoomId), 1);
+
+            // remove current player from online list if no more active rooms found
+            if (allOnlinePlayers[currentPlayerId].rooms.length === 0) {
+                delete allOnlinePlayers[currentPlayerId];
+            }
+        }
+    }
 
     // create a new room and join it
     function hostGame (data) {

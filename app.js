@@ -13,6 +13,5 @@ const server = express()
   .listen(PORT, () => console.log(`Listening on ${ PORT }`));
 
 var socketService = require('./services/socketService.js')(server);
-// var socketService = new SocketService(server);
 
 })();
