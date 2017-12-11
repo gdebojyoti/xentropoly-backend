@@ -195,6 +195,7 @@ function _onConnection (socket) {
 
         // inform everyone in currentRoomId of new joinee
         io.sockets.in(currentRoomId).emit("JOINED_SESSION", {
+            playerId: currentPlayerId,
             msg: currentPlayerId + " joined " + currentRoomId
         });
     }
