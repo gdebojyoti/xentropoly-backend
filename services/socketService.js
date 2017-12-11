@@ -165,6 +165,7 @@ function _onConnection (socket) {
         // get details of square
         let squareDetails = rooms[currentRoomId].squares[currentSquareId];
 
+        // if player opted to buy property
         if (data.response) {
             // assign property to player
             squareDetails.owner = currentPlayerId;
@@ -243,7 +244,10 @@ function _onConnection (socket) {
                     return false;
                 } else if (squareDetails.owner !== currentPlayerId) {
                     let rent = squareDetails.rent;
+                    // remove funds from current player
                     _removeFunds(rent);
+                    // add funds to square owner
+                    _addFunds(rent, squareDetails.owner);
                     io.sockets.in(currentRoomId).emit("RENT_PAID", {
                         owner: squareDetails.owner,
                         payee: currentPlayerId,
@@ -260,9 +264,14 @@ function _onConnection (socket) {
         }
     }
 
-    // deduct funds from current player
-    function _removeFunds (amount) {
-        rooms[currentRoomId].players[currentPlayerId].cash -= amount;
+    // add funds to player (or current player, if none specified)
+    function _addFunds (amount, playerId) {
+        rooms[currentRoomId].players[playerId || currentPlayerId].cash += amount;
+    }
+
+    // deduct funds from player (or current player, if none specified)
+    function _removeFunds (amount, playerId) {
+        rooms[currentRoomId].players[playerId || currentPlayerId].cash -= amount;
     }
 }
 
