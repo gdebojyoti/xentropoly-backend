@@ -78,7 +78,7 @@
             "id": 8,
             "type": "PROPERTY",
             "propertyGroupId": 1,
-            "propertyName": "Athens",
+            "propertyName": "Melbourne",
             "price": 100,
             "rent": 6,
             "tieredRent": [
@@ -94,7 +94,7 @@
             "id": 9,
             "type": "PROPERTY",
             "propertyGroupId": 1,
-            "propertyName": "Athens",
+            "propertyName": "Vienna",
             "price": 120,
             "rent": 8,
             "tieredRent": [
@@ -114,7 +114,7 @@
             "id": 11,
             "type": "PROPERTY",
             "propertyGroupId": 2,
-            "propertyName": "Athens",
+            "propertyName": "Vancouver",
             "price": 140,
             "rent": 10,
             "tieredRent": [
@@ -136,7 +136,7 @@
             "id": 13,
             "type": "PROPERTY",
             "propertyGroupId": 2,
-            "propertyName": "Athens",
+            "propertyName": "Toronto",
             "price": 140,
             "rent": 10,
             "tieredRent": [
@@ -152,7 +152,7 @@
             "id": 14,
             "type": "PROPERTY",
             "propertyGroupId": 2,
-            "propertyName": "Athens",
+            "propertyName": "Adelaide",
             "price": 160,
             "rent": 12,
             "tieredRent": [
@@ -175,7 +175,7 @@
             "id": 16,
             "type": "PROPERTY",
             "propertyGroupId": 3,
-            "propertyName": "Athens",
+            "propertyName": "Auckland",
             "price": 180,
             "rent": 14,
             "tieredRent": [
@@ -195,7 +195,7 @@
             "id": 18,
             "type": "PROPERTY",
             "propertyGroupId": 3,
-            "propertyName": "Athens",
+            "propertyName": "Berlin",
             "price": 180,
             "rent": 14,
             "tieredRent": [
@@ -211,7 +211,7 @@
             "id": 19,
             "type": "PROPERTY",
             "propertyGroupId": 3,
-            "propertyName": "Athens",
+            "propertyName": "Moscow",
             "price": 200,
             "rent": 16,
             "tieredRent": [
@@ -231,7 +231,7 @@
             "id": 21,
             "type": "PROPERTY",
             "propertyGroupId": 4,
-            "propertyName": "Athens",
+            "propertyName": "Helsinki",
             "price": 220,
             "rent": 18,
             "tieredRent": [
@@ -251,7 +251,7 @@
             "id": 23,
             "type": "PROPERTY",
             "propertyGroupId": 4,
-            "propertyName": "Athens",
+            "propertyName": "NYC",
             "price": 220,
             "rent": 18,
             "tieredRent": [
@@ -267,7 +267,7 @@
             "id": 24,
             "type": "PROPERTY",
             "propertyGroupId": 4,
-            "propertyName": "Athens",
+            "propertyName": "London",
             "price": 240,
             "rent": 20,
             "tieredRent": [
@@ -290,7 +290,7 @@
             "id": 26,
             "type": "PROPERTY",
             "propertyGroupId": 5,
-            "propertyName": "Athens",
+            "propertyName": "Calgary",
             "price": 240,
             "rent": 20,
             "tieredRent": [
@@ -306,7 +306,7 @@
             "id": 27,
             "type": "PROPERTY",
             "propertyGroupId": 5,
-            "propertyName": "Athens",
+            "propertyName": "Hamburg",
             "price": 240,
             "rent": 20,
             "tieredRent": [
@@ -328,7 +328,7 @@
             "id": 29,
             "type": "PROPERTY",
             "propertyGroupId": 5,
-            "propertyName": "Athens",
+            "propertyName": "Stockholm",
             "price": 280,
             "rent": 22,
             "tieredRent": [
@@ -348,7 +348,7 @@
             "id": 31,
             "type": "PROPERTY",
             "propertyGroupId": 6,
-            "propertyName": "Athens",
+            "propertyName": "Sydney",
             "price": 300,
             "rent": 26,
             "tieredRent": [
@@ -364,7 +364,7 @@
             "id": 32,
             "type": "PROPERTY",
             "propertyGroupId": 6,
-            "propertyName": "Athens",
+            "propertyName": "Geneva",
             "price": 300,
             "rent": 26,
             "tieredRent": [
@@ -384,7 +384,7 @@
             "id": 34,
             "type": "PROPERTY",
             "propertyGroupId": 6,
-            "propertyName": "Athens",
+            "propertyName": "Paris",
             "price": 320,
             "rent": 28,
             "tieredRent": [
