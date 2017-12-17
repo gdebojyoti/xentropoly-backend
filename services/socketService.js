@@ -142,7 +142,9 @@ function _onConnection (socket) {
         // move player to computed position
         rooms[currentRoomId].players[currentPlayerId].position = currentSquareId;
 
-        socket.emit("PLAYER_MOVED", {
+        // inform everyone in currentRoomId that currentPlayerId has moved to currentSquareId
+        io.sockets.in(currentRoomId).emit("PLAYER_MOVED", {
+            player: currentPlayerId,
             position: currentSquareId,
             msg: currentPlayerId + " moves to " + currentSquareId
         });
@@ -196,7 +198,8 @@ function _onConnection (socket) {
         // inform everyone in currentRoomId of new joinee
         io.sockets.in(currentRoomId).emit("JOINED_SESSION", {
             playerId: currentPlayerId,
-            msg: currentPlayerId + " joined " + currentRoomId
+            players: rooms[currentRoomId].players,
+            msg: currentPlayerId + " joining " + currentRoomId
         });
     }
 
