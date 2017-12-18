@@ -15,7 +15,8 @@ var rooms = {}, // list of all rooms
         players: {},
         nextTurn: null,
         // diceRolled: false,
-        squares: null
+        squares: null,
+        currentTrade: null
     },
     samplePlayerDetails = {
         position: 0,
@@ -36,6 +37,8 @@ function _onConnection (socket) {
     socket.on("JOIN_GAME", joinGame);
     socket.on("TRIGGER_TURN", triggerTurn);
     socket.on("PROPERTY_PURCHASED", propertyPurchased);
+    socket.on("TRADE_PROPOSAL_INITIATED", tradeProposalInitiated);
+    socket.on("TRADE_PROPOSAL_RESPONDED", tradeProposalResponded);
 
     // on client disconnect
     function onDisconnect () {
@@ -185,6 +188,40 @@ function _onConnection (socket) {
 
         // update nextTurn
         _updateNextTurn();
+    }
+
+    function tradeProposalInitiated (data) {
+        // ignore if a trade is currently in progress
+        if (rooms[currentRoomId].currentTrade) {
+            return;
+        }
+
+        let currentTrade = {
+            proposedBy: currentPlayerId,
+            proposedTo: data.tradeWithPlayerId,
+            offer: data.offer,
+            receive: data.receive,
+            msg: currentPlayerId + " has proposed a trade with " + data.tradeWithPlayerId
+        };
+
+        // save details of current trade proposal
+        rooms[currentRoomId].currentTrade = currentTrade;
+
+        // inform other players in currentRoomId that currentPlayerId has proposed a trade with tradeWithPlayerId
+        socket.broadcast.to(currentRoomId).emit("TRADE_PROPOSAL_RECEIVED", currentTrade);
+    }
+
+    function tradeProposalResponded (data) {
+        // ignore if no trade is found or invalid player responds to trade proposal
+        if (!rooms[currentRoomId].currentTrade || rooms[currentRoomId].currentTrade.proposedTo !== currentPlayerId) {
+            console.warn("invalid player cannot respond to trade offer");
+            return;
+        }
+
+        console.log("Trade: ", data.response);
+
+        // conclude current trade (set it to null)
+        rooms[currentRoomId].currentTrade = null;
     }
 
 
