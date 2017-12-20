@@ -35,6 +35,7 @@ function _onConnection (socket) {
 
     socket.on("HOST_GAME", hostGame);
     socket.on("JOIN_GAME", joinGame);
+    socket.on("CHAT_MESSAGE_SENT", chatMessageSent);
     socket.on("TRIGGER_TURN", triggerTurn);
     socket.on("PROPERTY_PURCHASED", propertyPurchased);
     socket.on("TRADE_PROPOSAL_INITIATED", tradeProposalInitiated);
@@ -121,6 +122,16 @@ function _onConnection (socket) {
         } else {
             socket.emit("HOST_NOT_FOUND", {
                 msg: "Could not find host player with id " + hostPlayerId
+            });
+        }
+    }
+
+    // chat message sent by currentPlayerId
+    function chatMessageSent (data) {
+        if (data.msg) {
+            socket.broadcast.to(currentRoomId).emit("CHAT_MESSAGE_RECEIVED", {
+                sender: currentPlayerId,
+                msg: data.msg
             });
         }
     }
@@ -262,6 +273,10 @@ function _onConnection (socket) {
 
         // conclude current trade (set it to null)
         rooms[currentRoomId].currentTrade = null;
+
+        // TODO: Complete trade system
+        // broadcast message to all about status of trade
+        // update all player UIs if trade was successful (client side)
     }
 
 
