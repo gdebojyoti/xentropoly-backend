@@ -40,6 +40,8 @@ function _onConnection (socket) {
     socket.on("PROPERTY_PURCHASED", propertyPurchased);
     socket.on("TRADE_PROPOSAL_INITIATED", tradeProposalInitiated);
     socket.on("TRADE_PROPOSAL_RESPONDED", tradeProposalResponded);
+    socket.on("REQUEST_MORTGAGE", requestMortgage);
+    socket.on("REQUEST_UNMORTGAGE", requestUnmortgage);
 
     // on client disconnect
     function onDisconnect () {
@@ -279,6 +281,74 @@ function _onConnection (socket) {
         // update all player UIs if trade was successful (client side)
     }
 
+    function requestMortgage (data) {
+        // get details of square
+        let squareDetails = rooms[currentRoomId].squares[data.squareId];
+
+        // ignore if data.squareId does not belong to currentPlayerId
+        if (squareDetails.owner !== currentPlayerId) {
+            console.log(data.squareId + " does not belong to " + currentPlayerId);
+            return;
+        }
+
+        // ignore if data.squareId is already mortgaged
+        if (squareDetails.isMortgaged) {
+            console.log(data.squareId + " is already mortgaged");
+            return;
+        }
+
+        // add funds (half of price) to currentPlayerId
+        _addFunds(squareDetails.price / 2);
+
+        // set isMortgaged to true for data.squareId
+        squareDetails.isMortgaged = true;
+
+        // inform everyone in currentRoomId that currentPlayerId has mortgaged property
+        io.sockets.in(currentRoomId).emit("PROPERTY_MORTGAGED", {
+            playerId: currentPlayerId,
+            squareId: data.squareId,
+            msg: currentPlayerId + " mortgaged " + squareDetails.propertyName + " for " + squareDetails.price / 2
+        });
+    }
+
+    function requestUnmortgage (data) {
+        // get details of square
+        let squareDetails = rooms[currentRoomId].squares[data.squareId];
+
+        // ignore if data.squareId does not belong to currentPlayerId
+        if (squareDetails.owner !== currentPlayerId) {
+            console.log(data.squareId + " does not belong to " + currentPlayerId);
+            return;
+        }
+
+        // ignore if data.squareId is not already mortgaged
+        if (!squareDetails.isMortgaged) {
+            console.log(data.squareId + " is not mortgaged");
+            return;
+        }
+
+        // compute cost to pay off mortgage
+        let cost = squareDetails.price / 2 * 1.1;
+
+        // ignore if player has less funds than mortgage payoff cost
+        if (_getFunds() < cost) {
+            return;
+        }
+
+        // remove funds (half of price) to currentPlayerId
+        _removeFunds(cost);
+
+        // set isMortgaged to false for data.squareId
+        squareDetails.isMortgaged = false;
+
+        // inform everyone in currentRoomId that currentPlayerId has paid off the mortgage
+        io.sockets.in(currentRoomId).emit("PROPERTY_UNMORTGAGED", {
+            playerId: currentPlayerId,
+            squareId: data.squareId,
+            msg: currentPlayerId + " has paid off his mortgage on " + squareDetails.propertyName + " with " + squareDetails.price / 2 * 1.1
+        });
+    }
+
 
     /* Private methods */
 
@@ -358,6 +428,11 @@ function _onConnection (socket) {
                 console.log(squareDetails);
                 return true;
         }
+    }
+
+    // get amount of funds player (or current player, if none specified) currently has
+    function _getFunds (playerId) {
+        return rooms[currentRoomId].players[playerId || currentPlayerId].cash;
     }
 
     // add funds to player (or current player, if none specified)
