@@ -84,7 +84,7 @@ function _onConnection (socket) {
         socket.emit("GAME_CREATED", {
             msg: "New game room created with id " + currentRoomId,
             allPlayers: allOnlinePlayers,
-            rooms: rooms
+            room: rooms[currentRoomId]
         });
 
         _joinSession();
@@ -110,7 +110,7 @@ function _onConnection (socket) {
                 socket.emit("GAME_JOINED", {
                     msg: "Game room joined with id " + currentRoomId,
                     allPlayers: allOnlinePlayers,
-                    rooms: rooms
+                    room: rooms[currentRoomId]
                 });
 
                 _joinSession();
@@ -361,6 +361,7 @@ function _onConnection (socket) {
         io.sockets.in(currentRoomId).emit("JOINED_SESSION", {
             playerId: currentPlayerId,
             players: rooms[currentRoomId].players,
+            room: rooms[currentRoomId],
             msg: currentPlayerId + " joining " + currentRoomId
         });
     }
