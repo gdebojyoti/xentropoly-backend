@@ -282,32 +282,42 @@ function _onConnection (socket) {
     }
 
     function requestMortgage (data) {
-        // get details of square
-        let squareDetails = rooms[currentRoomId].squares[data.squareId];
+        // keep track of squares that are actually being mortgaged
+        let squaresMortgaged = [];
 
-        // ignore if data.squareId does not belong to currentPlayerId
-        if (squareDetails.owner !== currentPlayerId) {
-            console.log(data.squareId + " does not belong to " + currentPlayerId);
-            return;
+        for (let squareId of data.squares) {
+
+            // get details of square
+            let squareDetails = rooms[currentRoomId].squares[squareId];
+
+            // ignore & continue if squareId does not belong to currentPlayerId
+            if (squareDetails.owner !== currentPlayerId) {
+                console.log(squareId + " does not belong to " + currentPlayerId);
+                continue;
+            }
+
+            // ignore & continue if squareId is already mortgaged
+            if (squareDetails.isMortgaged) {
+                console.log(squareId + " is already mortgaged");
+                continue;
+            }
+
+            // add funds (half of price) to currentPlayerId
+            _addFunds(squareDetails.price / 2);
+
+            // set isMortgaged to true for squareId
+            squareDetails.isMortgaged = true;
+
+            // add square ID to array on successful mortgage
+            squaresMortgaged.push(squareId);
+
         }
-
-        // ignore if data.squareId is already mortgaged
-        if (squareDetails.isMortgaged) {
-            console.log(data.squareId + " is already mortgaged");
-            return;
-        }
-
-        // add funds (half of price) to currentPlayerId
-        _addFunds(squareDetails.price / 2);
-
-        // set isMortgaged to true for data.squareId
-        squareDetails.isMortgaged = true;
 
         // inform everyone in currentRoomId that currentPlayerId has mortgaged property
         io.sockets.in(currentRoomId).emit("PROPERTY_MORTGAGED", {
             playerId: currentPlayerId,
-            squareId: data.squareId,
-            msg: currentPlayerId + " mortgaged " + squareDetails.propertyName + " for " + squareDetails.price / 2
+            squares: squaresMortgaged,
+            msg: currentPlayerId + " mortgaged " + squaresMortgaged
         });
     }
 
