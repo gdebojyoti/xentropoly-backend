@@ -83,8 +83,9 @@ function _onConnection (socket) {
 
         socket.emit("GAME_CREATED", {
             msg: "New game room created with id " + currentRoomId,
-            allPlayers: allOnlinePlayers,
-            room: rooms[currentRoomId]
+            allOnlinePlayers: allOnlinePlayers,
+            room: rooms[currentRoomId],
+            mapData: mapData
         });
 
         _joinSession();
@@ -109,8 +110,9 @@ function _onConnection (socket) {
 
                 socket.emit("GAME_JOINED", {
                     msg: "Game room joined with id " + currentRoomId,
-                    allPlayers: allOnlinePlayers,
-                    room: rooms[currentRoomId]
+                    allOnlinePlayers: allOnlinePlayers,
+                    room: rooms[currentRoomId],
+                    mapData: mapData
                 });
 
                 _joinSession();
@@ -448,12 +450,26 @@ function _onConnection (socket) {
 
     // add funds to player (or current player, if none specified)
     function _addFunds (amount, playerId) {
-        rooms[currentRoomId].players[playerId || currentPlayerId].cash += amount;
+        playerId = playerId || currentPlayerId;
+
+        // ignore if no player is found
+        if (!rooms[currentRoomId].players[playerId]) {
+            return;
+        }
+
+        rooms[currentRoomId].players[playerId].cash += amount;
     }
 
     // deduct funds from player (or current player, if none specified)
     function _removeFunds (amount, playerId) {
-        rooms[currentRoomId].players[playerId || currentPlayerId].cash -= amount;
+        playerId = playerId || currentPlayerId;
+
+        // ignore if no player is found
+        if (!rooms[currentRoomId].players[playerId]) {
+            return;
+        }
+
+        rooms[currentRoomId].players[playerId].cash -= amount;
     }
 
     // check if trade proposal if valid
