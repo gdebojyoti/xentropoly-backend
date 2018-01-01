@@ -219,8 +219,8 @@ function _onConnection (socket) {
         let currentTrade = {
             proposedBy: currentPlayerId,
             proposedTo: data.tradeWithPlayerId,
-            offer: data.offer,
-            receive: data.receive,
+            offered: data.offered,
+            requested: data.requested,
             msg: currentPlayerId + " has proposed a trade with " + data.tradeWithPlayerId
         };
 
@@ -241,34 +241,34 @@ function _onConnection (socket) {
         // make trade exchange happen; assign cash and properties
         if (data.response) {
             let tradeData = rooms[currentRoomId].currentTrade;
-            let offer = tradeData.offer;
-            let receive = tradeData.receive;
+            let offered = tradeData.offered;
+            let requested = tradeData.requested;
 
             // alter funds
-            if (offer.cash > 0) {
+            if (offered.cash > 0) {
                 // add funds to tradeData.proposedTo
-                _addFunds(offer.cash, tradeData.proposedTo);
+                _addFunds(offered.cash, tradeData.proposedTo);
                 // remove funds from tradeData.proposedBy
-                _removeFunds(offer.cash, tradeData.proposedBy);
+                _removeFunds(offered.cash, tradeData.proposedBy);
             }
-            if (receive.cash > 0) {
+            if (requested.cash > 0) {
                 // add funds to tradeData.proposedBy
-                _addFunds(offer.cash, tradeData.proposedBy);
+                _addFunds(offered.cash, tradeData.proposedBy);
                 // remove funds from tradeData.proposedTo
-                _removeFunds(offer.cash, tradeData.proposedTo);
+                _removeFunds(offered.cash, tradeData.proposedTo);
             }
 
             // assign properties
-            if (offer.squares && offer.squares.length > 0) {
+            if (offered.squares && offered.squares.length > 0) {
                 // set owner of all offered properties to tradeData.proposedTo
-                for (let i = 0; i < offer.squares.length; i++) {
-                    rooms[currentRoomId].squares[offer.squares[i]].owner = tradeData.proposedTo;
+                for (let i = 0; i < offered.squares.length; i++) {
+                    rooms[currentRoomId].squares[offered.squares[i]].owner = tradeData.proposedTo;
                 }
             }
-            if (receive.squares && receive.squares.length > 0) {
+            if (requested.squares && requested.squares.length > 0) {
                 // set owner of all received properties to tradeData.proposedBy
-                for (let i = 0; i < receive.squares.length; i++) {
-                    rooms[currentRoomId].squares[receive.squares[i]].owner = tradeData.proposedBy;
+                for (let i = 0; i < requested.squares.length; i++) {
+                    rooms[currentRoomId].squares[requested.squares[i]].owner = tradeData.proposedBy;
                 }
             }
 
@@ -476,30 +476,30 @@ function _onConnection (socket) {
     function _isValidTradeOffer (tradeData) {
         console.log(tradeData);
 
-        let offer = tradeData.offer; // offered by currentPlayerId to tradeData.tradeWithPlayerId
-        let receive = tradeData.receive; // currentPlayerId will receive from tradeData.tradeWithPlayerId
+        let offered = tradeData.offered; // offered by currentPlayerId to tradeData.tradeWithPlayerId
+        let requested = tradeData.requested; // currentPlayerId will requested from tradeData.tradeWithPlayerId
 
-        // offer or receive cash cannot be negative
-        if (offer.cash < 0 || receive.cash < 0) {
+        // offered or requested cash cannot be negative
+        if (offered.cash < 0 || requested.cash < 0) {
             console.log("Cash cannot be negative!");
             return false;
         }
 
         // all offered squares must belong to currentPlayerId
-        if (offer.squares && offer.squares.length > 0) {
-            for (let i = 0; i < offer.squares.length; i++) {
-                if (rooms[currentRoomId].squares[offer.squares[i]].owner !== currentPlayerId) {
-                    console.log(offer.squares[i] + " does not belong to " + currentPlayerId);
+        if (offered.squares && offered.squares.length > 0) {
+            for (let i = 0; i < offered.squares.length; i++) {
+                if (rooms[currentRoomId].squares[offered.squares[i]].owner !== currentPlayerId) {
+                    console.log(offered.squares[i] + " does not belong to " + currentPlayerId);
                     return false;
                 }
             }
         }
 
-        // all receive squares must belong to tradeData.tradeWithPlayerId
-        if (receive.squares && receive.squares.length > 0) {
-            for (let i = 0; i < receive.squares.length; i++) {
-                if (rooms[currentRoomId].squares[receive.squares[i]].owner !== tradeData.tradeWithPlayerId) {
-                    console.log(receive.squares[i] + " does not belong to " + tradeData.tradeWithPlayerId);
+        // all requested squares must belong to tradeData.tradeWithPlayerId
+        if (requested.squares && requested.squares.length > 0) {
+            for (let i = 0; i < requested.squares.length; i++) {
+                if (rooms[currentRoomId].squares[requested.squares[i]].owner !== tradeData.tradeWithPlayerId) {
+                    console.log(requested.squares[i] + " does not belong to " + tradeData.tradeWithPlayerId);
                     return false;
                 }
             }
