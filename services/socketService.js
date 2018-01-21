@@ -272,15 +272,15 @@ function _onConnection (socket) {
                 }
             }
 
-            console.log(rooms[currentRoomId].squares);
+            // deliver TRADE_SUCCESSFUL message to all players in room
+            io.sockets.in(currentRoomId).emit("TRADE_SUCCESSFUL", {
+                tradeData: tradeData,
+                msg: tradeData.proposedTo + " accepted an offer from " + tradeData.proposedBy
+            });
         }
 
         // conclude current trade (set it to null)
         rooms[currentRoomId].currentTrade = null;
-
-        // TODO: Complete trade system
-        // broadcast message to all about status of trade
-        // update all player UIs if trade was successful (client side)
     }
 
     function requestMortgage (data) {
