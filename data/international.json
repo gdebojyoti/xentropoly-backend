@@ -19,7 +19,8 @@
                 320,
                 450
             ],
-            "mortgage": 30
+            "mortgage": 30,
+            "unmortgage": 30
         },
         {
             "id": 2,
@@ -39,7 +40,8 @@
                 160,
                 250
             ],
-            "mortgage": 30
+            "mortgage": 30,
+            "unmortgage": 30
         },
         {
             "id": 4,
@@ -68,7 +70,8 @@
                 400,
                 550
             ],
-            "mortgage": 50
+            "mortgage": 50,
+            "unmortgage": 50
         },
         {
             "id": 7,
@@ -88,7 +91,8 @@
                 400,
                 550
             ],
-            "mortgage": 50
+            "mortgage": 50,
+            "unmortgage": 50
         },
         {
             "id": 9,
@@ -104,7 +108,8 @@
                 450,
                 600
             ],
-            "mortgage": 60
+            "mortgage": 60,
+            "unmortgage": 60
         },
         {
             "id": 10,
@@ -124,7 +129,8 @@
                 625,
                 750
             ],
-            "mortgage": 70
+            "mortgage": 70,
+            "unmortgage": 70
         },
         {
             "id": 12,
@@ -146,7 +152,8 @@
                 625,
                 750
             ],
-            "mortgage": 70
+            "mortgage": 70,
+            "unmortgage": 70
         },
         {
             "id": 14,
@@ -162,7 +169,8 @@
                 700,
                 900
             ],
-            "mortgage": 80
+            "mortgage": 80,
+            "unmortgage": 80
         },
         {
             "id": 15,
@@ -185,7 +193,8 @@
                 750,
                 950
             ],
-            "mortgage": 90
+            "mortgage": 90,
+            "unmortgage": 90
         },
         {
             "id": 17,
@@ -205,7 +214,8 @@
                 750,
                 950
             ],
-            "mortgage": 90
+            "mortgage": 90,
+            "unmortgage": 90
         },
         {
             "id": 19,
@@ -221,7 +231,8 @@
                 800,
                 1000
             ],
-            "mortgage": 100
+            "mortgage": 100,
+            "unmortgage": 100
         },
         {
             "id": 20,
@@ -241,7 +252,8 @@
                 875,
                 1050
             ],
-            "mortgage": 110
+            "mortgage": 110,
+            "unmortgage": 110
         },
         {
             "id": 22,
@@ -261,7 +273,8 @@
                 875,
                 1050
             ],
-            "mortgage": 110
+            "mortgage": 110,
+            "unmortgage": 110
         },
         {
             "id": 24,
@@ -277,7 +290,8 @@
                 925,
                 1100
             ],
-            "mortgage": 120
+            "mortgage": 120,
+            "unmortgage": 120
         },
         {
             "id": 25,
@@ -300,7 +314,8 @@
                 925,
                 1100
             ],
-            "mortgage": 120
+            "mortgage": 120,
+            "unmortgage": 120
         },
         {
             "id": 27,
@@ -316,7 +331,8 @@
                 925,
                 1100
             ],
-            "mortgage": 120
+            "mortgage": 120,
+            "unmortgage": 120
         },
         {
             "id": 28,
@@ -338,7 +354,8 @@
                 1025,
                 1200
             ],
-            "mortgage": 140
+            "mortgage": 140,
+            "unmortgage": 140
         },
         {
             "id": 30,
@@ -358,7 +375,8 @@
                 1100,
                 1275
             ],
-            "mortgage": 150
+            "mortgage": 150,
+            "unmortgage": 150
         },
         {
             "id": 32,
@@ -374,7 +392,8 @@
                 1100,
                 1275
             ],
-            "mortgage": 150
+            "mortgage": 150,
+            "unmortgage": 150
         },
         {
             "id": 33,
@@ -394,7 +413,8 @@
                 1200,
                 1400
             ],
-            "mortgage": 160
+            "mortgage": 160,
+            "unmortgage": 160
         },
         {
             "id": 35,
@@ -421,7 +441,8 @@
                 1700,
                 2000
             ],
-            "mortgage": 200
+            "mortgage": 200,
+            "unmortgage": 200
         },
         {
             "id": 38,
@@ -443,7 +464,8 @@
                 1300,
                 1500
             ],
-            "mortgage": 175
+            "mortgage": 175,
+            "unmortgage": 175
         }
     ],
     "propertyCodes": [

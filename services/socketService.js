@@ -333,41 +333,58 @@ function _onConnection (socket) {
     }
 
     function requestUnmortgage (data) {
-        // get details of square
-        let squareDetails = rooms[currentRoomId].squares[data.squareId];
+        // keep track of squares that are actually being unmortgaged
+        let squaresUnmortgaged = [];
+        // keep track of cash that will be deducted for paying off mortgages
+        let costForUnmortgage = 0;
 
-        // ignore if data.squareId does not belong to currentPlayerId
-        if (squareDetails.owner !== currentPlayerId) {
-            console.log(data.squareId + " does not belong to " + currentPlayerId);
-            return;
+        for (let squareId of data.squares) {
+
+            // get details of square
+            let squareDetails = rooms[currentRoomId].squares[squareId];
+
+            // ignore & continue if squareId does not belong to currentPlayerId
+            if (squareDetails.owner !== currentPlayerId) {
+                console.log(squareId + " does not belong to " + currentPlayerId);
+                continue;
+            }
+
+            // ignore & continue if squareId is not mortgaged
+            if (!squareDetails.isMortgaged) {
+                console.log(squareId + " is not mortgaged");
+                continue;
+            }
+
+            // add unmortgaging funds to costForUnmortgage
+            costForUnmortgage += squareDetails.unmortgage;
+
+            // set isMortgaged to false for squareId
+            squareDetails.isMortgaged = false;
+
+            // add square ID to array on successful pay off
+            squaresUnmortgaged.push(squareId);
+
         }
-
-        // ignore if data.squareId is not already mortgaged
-        if (!squareDetails.isMortgaged) {
-            console.log(data.squareId + " is not mortgaged");
-            return;
-        }
-
-        // compute cost to pay off mortgage
-        let cost = squareDetails.price / 2 * 1.1;
 
         // ignore if player has less funds than mortgage payoff cost
-        if (_getFunds() < cost) {
+        if (_getFunds() < costForUnmortgage) {
+            console.log("Player cannot afford to unmortgage selected properties");
             return;
         }
 
-        // remove funds (half of price) to currentPlayerId
-        _removeFunds(cost);
+        // remove funds and trigger message via socket if at least one valid property is unmortgaged
+        if (squaresUnmortgaged.length) {
+            // remove unmortgaging funds from currentPlayerId
+            _removeFunds(costForUnmortgage);
 
-        // set isMortgaged to false for data.squareId
-        squareDetails.isMortgaged = false;
-
-        // inform everyone in currentRoomId that currentPlayerId has paid off the mortgage
-        io.sockets.in(currentRoomId).emit("PROPERTY_UNMORTGAGED", {
-            playerId: currentPlayerId,
-            squareId: data.squareId,
-            msg: currentPlayerId + " has paid off his mortgage on " + squareDetails.propertyName + " with " + squareDetails.price / 2 * 1.1
-        });
+            // inform everyone in currentRoomId that currentPlayerId has unmortgaged property
+            io.sockets.in(currentRoomId).emit("PROPERTY_UNMORTGAGED", {
+                playerId: currentPlayerId,
+                squares: squaresUnmortgaged,
+                cash: costForUnmortgage,
+                msg: currentPlayerId + " paid off his mortgage on " + squaresUnmortgaged + " with " + costForUnmortgage
+            });
+        }
     }
 
 
