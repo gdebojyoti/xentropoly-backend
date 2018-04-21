@@ -1,6 +1,6 @@
 const Room = require('../models/room.js');
 
-var io,
+let io,
     mapData;
 
 module.exports = function(server, data) {
@@ -10,7 +10,7 @@ module.exports = function(server, data) {
     mapData = data;
 };
 
-var rooms = {}, // list of all rooms
+const rooms = {}, // list of all rooms
     allOnlinePlayers = {}, // list of all players who are currently online
     sampleRoom = {
         // isPlaying: false,
@@ -53,7 +53,7 @@ function _onConnection (socket) {
 
         // remove current player from current room
         if (rooms[currentRoomId]) {
-            rooms[currentRoomId].deletePlayer(currentPlayerId);
+            rooms[currentRoomId].removePlayer(currentPlayerId);
         }
 
         // remove corresponding entry from allOnlinePlayers
@@ -107,7 +107,7 @@ function _onConnection (socket) {
 
             if (rooms[currentRoomId] && rooms[currentRoomId].getAllPlayers()) {
 
-                rooms[currentRoomId].createPlayer(currentPlayerId);
+                rooms[currentRoomId].addPlayer(currentPlayerId);
 
                 _updateAllPlayerList(currentPlayerId, currentRoomId);
 
@@ -135,7 +135,7 @@ function _onConnection (socket) {
 
     function declareBankruptcy () {
         // check if it is currentPlayerId's turn
-        if (!_isCurrentPlayersTurn()) {
+        if (!rooms[currentRoomId].isPlayersTurn(currentPlayerId)) {
             socket.emit("INVALID_TURN");
             return;
         }
@@ -143,7 +143,7 @@ function _onConnection (socket) {
         _triggerBankruptcy();
 
         // trigger next player's turn
-        _updateNextTurn();
+        rooms[currentRoomId].updateNextTurn();
     }
 
     // chat message sent by currentPlayerId
@@ -159,7 +159,7 @@ function _onConnection (socket) {
     // roll dice; move player; execute card details
     function triggerTurn () {
         // check if it is currentPlayerId's turn
-        if (!_isCurrentPlayersTurn()) {
+        if (!rooms[currentRoomId].isPlayersTurn(currentPlayerId)) {
             socket.emit("INVALID_TURN");
             return;
         }
@@ -187,13 +187,13 @@ function _onConnection (socket) {
 
         if (shouldEndTurn) {
             // update nextTurn
-            _updateNextTurn();
+            rooms[currentRoomId].updateNextTurn();
         }
     }
 
     function propertyPurchased (data) {
         // check if it is currentPlayerId's turn
-        if (!_isCurrentPlayersTurn()) {
+        if (!rooms[currentRoomId].isPlayersTurn(currentPlayerId)) {
             socket.emit("INVALID_TURN");
             return;
         }
@@ -218,7 +218,7 @@ function _onConnection (socket) {
         }
 
         // update nextTurn
-        _updateNextTurn();
+        rooms[currentRoomId].updateNextTurn();
     }
 
     function tradeProposalInitiated (data) {
@@ -227,17 +227,22 @@ function _onConnection (socket) {
             return;
         }
 
+        const offered = data.offered, // offered by currentPlayerId to data.tradeWithPlayerId
+            requested = data.requested, // currentPlayerId will requested from data.tradeWithPlayerId
+            proposedTo = data.tradeWithPlayerId;
+
         // ignore if trade proposal is invalid
-        if (!_isValidTradeOffer(data)) {
+        const isTradeOfferValid = rooms[currentRoomId].isTradeOfferValid (currentPlayerId, proposedTo, offered, requested);
+        if (!isTradeOfferValid) {
             return;
         }
 
-        let currentTrade = {
+        const currentTrade = {
             proposedBy: currentPlayerId,
-            proposedTo: data.tradeWithPlayerId,
-            offered: data.offered,
-            requested: data.requested,
-            msg: currentPlayerId + " has proposed a trade with " + data.tradeWithPlayerId
+            proposedTo,
+            offered,
+            requested,
+            msg: currentPlayerId + " has proposed a trade with " + proposedTo
         };
 
         // save details of current trade proposal
@@ -257,36 +262,7 @@ function _onConnection (socket) {
 
         // make trade exchange happen; assign cash and properties
         if (data.response) {
-            let offered = tradeData.offered,
-                requested = tradeData.requested;
-
-            // alter funds
-            if (offered.cash > 0) {
-                // add funds to tradeData.proposedTo
-                rooms[currentRoomId].addPlayerCash(tradeData.proposedTo, offered.cash);
-                // remove funds from tradeData.proposedBy
-                rooms[currentRoomId].addPlayerCash(tradeData.proposedBy, -offered.cash);
-            }
-            if (requested.cash > 0) {
-                // add funds to tradeData.proposedBy
-                rooms[currentRoomId].addPlayerCash(tradeData.proposedBy, offered.cash);
-                // remove funds from tradeData.proposedTo
-                rooms[currentRoomId].addPlayerCash(tradeData.proposedTo, -offered.cash);
-            }
-
-            // assign properties
-            if (offered.squares && offered.squares.length > 0) {
-                // set owner of all offered properties to tradeData.proposedTo
-                for (let i = 0; i < offered.squares.length; i++) {
-                    rooms[currentRoomId].setSquareOwner(offered.squares[i], tradeData.proposedTo);
-                }
-            }
-            if (requested.squares && requested.squares.length > 0) {
-                // set owner of all received properties to tradeData.proposedBy
-                for (let i = 0; i < requested.squares.length; i++) {
-                    rooms[currentRoomId].setSquareOwner(requested.squares[i], tradeData.proposedBy);
-                }
-            }
+            rooms[currentRoomId].executeTrade();
 
             // deliver TRADE_SUCCESSFUL message to all players in room
             io.sockets.in(currentRoomId).emit("TRADE_SUCCESSFUL", {
@@ -300,44 +276,10 @@ function _onConnection (socket) {
     }
 
     function requestMortgage (data) {
-        // keep track of squares that are actually being mortgaged
-        let squaresMortgaged = [];
-        // keep track of cash that will be earned by mortgaging
-        let cashFromMortgage = 0;
+        const { squaresMortgaged, cashFromMortgage} = rooms[currentRoomId].mortgageProperties(currentPlayerId, data.squares);
 
-        for (let squareId of data.squares) {
-
-            // get details of square
-            const squareDetails = rooms[currentRoomId].getSquareDetails(squareId);
-
-            // ignore & continue if squareId does not belong to currentPlayerId
-            if (squareDetails.owner !== currentPlayerId) {
-                console.log(squareId + " does not belong to " + currentPlayerId);
-                continue;
-            }
-
-            // ignore & continue if squareId is already mortgaged
-            if (squareDetails.isMortgaged) {
-                console.log(squareId + " is already mortgaged");
-                continue;
-            }
-
-            // add mortgaging funds to cashFromMortgage
-            cashFromMortgage += squareDetails.mortgage;
-
-            // set isMortgaged to true for squareId
-            squareDetails.isMortgaged = true;
-
-            // add square ID to array on successful mortgage
-            squaresMortgaged.push(squareId);
-
-        }
-
-        // add funds and trigger message via socket if at least one valid property is mortgaged
+        // trigger message via socket if at least one valid property is mortgaged
         if (squaresMortgaged.length) {
-            // add mortgaging funds to currentPlayerId
-            rooms[currentRoomId].addPlayerCash(currentPlayerId, cashFromMortgage);
-
             // inform everyone in currentRoomId that currentPlayerId has mortgaged property
             io.sockets.in(currentRoomId).emit("PROPERTY_MORTGAGED", {
                 playerId: currentPlayerId,
@@ -349,50 +291,10 @@ function _onConnection (socket) {
     }
 
     function requestUnmortgage (data) {
-        // keep track of squares that are actually being unmortgaged
-        let squaresUnmortgaged = [];
-        // keep track of cash that will be deducted for paying off mortgages
-        let costForUnmortgage = 0;
+        const { squaresUnmortgaged, costForUnmortgage} = rooms[currentRoomId].unmortgageProperties(currentPlayerId, data.squares);
 
-        for (let squareId of data.squares) {
-
-            // get details of square
-            const squareDetails = rooms[currentRoomId].getSquareDetails(squareId);
-
-            // ignore & continue if squareId does not belong to currentPlayerId
-            if (squareDetails.owner !== currentPlayerId) {
-                console.log(squareId + " does not belong to " + currentPlayerId);
-                continue;
-            }
-
-            // ignore & continue if squareId is not mortgaged
-            if (!squareDetails.isMortgaged) {
-                console.log(squareId + " is not mortgaged");
-                continue;
-            }
-
-            // add unmortgaging funds to costForUnmortgage
-            costForUnmortgage += squareDetails.unmortgage;
-
-            // set isMortgaged to false for squareId
-            squareDetails.isMortgaged = false;
-
-            // add square ID to array on successful pay off
-            squaresUnmortgaged.push(squareId);
-
-        }
-
-        // ignore if player has less funds than mortgage payoff cost
-        if (_getFunds() < costForUnmortgage) {
-            console.log("Player cannot afford to unmortgage selected properties");
-            return;
-        }
-
-        // remove funds and trigger message via socket if at least one valid property is unmortgaged
+        // trigger message via socket if at least one valid property is unmortgaged
         if (squaresUnmortgaged.length) {
-            // remove unmortgaging funds from currentPlayerId
-            rooms[currentRoomId].addPlayerCash(currentPlayerId, -costForUnmortgage);
-
             // inform everyone in currentRoomId that currentPlayerId has unmortgaged property
             io.sockets.in(currentRoomId).emit("PROPERTY_UNMORTGAGED", {
                 playerId: currentPlayerId,
@@ -431,11 +333,6 @@ function _onConnection (socket) {
         });
     }
 
-    // check if this is current player's turn
-    function _isCurrentPlayersTurn () {
-        return rooms[currentRoomId].getNextTurn() === currentPlayerId;
-    }
-
     // roll dice: get random integer between 2 & 12
     function _rollDice () {
         let dice1 = _getRandomInt(1, 6),
@@ -447,26 +344,6 @@ function _onConnection (socket) {
     // generate random integer between "min" & "max" limits (inclusive)
     function _getRandomInt (min, max) {
         return Math.floor(Math.random() * (max - min + 1)) + min;
-    }
-
-    // update next turn
-    function _updateNextTurn () {
-        let playersArr = Object.keys(rooms[currentRoomId].getAllPlayers()),
-            oldNextTurn = rooms[currentRoomId].getNextTurn(),
-            index = playersArr.indexOf(oldNextTurn);
-
-        let cyclesCompleted = 0; // prevent infinite loop when all players have been declared bankrupt
-
-        // select the next player who is active (i.e., ignore bankrupt players)
-        do {
-            index = index + 1 < playersArr.length ? index + 1 : 0;
-            rooms[currentRoomId].setNextTurn(playersArr[index]);
-            if (index === 0) {
-                cyclesCompleted++;
-            }
-        } while (!rooms[currentRoomId].getPlayerActiveStatus(playersArr[index]) && cyclesCompleted < 2)
-
-        console.log("Next turn:", rooms[currentRoomId].getNextTurn());
     }
 
     // execute whatever is on square
@@ -504,47 +381,6 @@ function _onConnection (socket) {
                 console.log(squareDetails);
                 return true;
         }
-    }
-
-    // get amount of funds player (or current player, if none specified) currently has
-    function _getFunds (playerId) {
-        return rooms[currentRoomId].getPlayerCash(playerId || currentPlayerId);
-    }
-
-    // check if trade proposal if valid
-    function _isValidTradeOffer (tradeData) {
-        console.log(tradeData);
-
-        let offered = tradeData.offered; // offered by currentPlayerId to tradeData.tradeWithPlayerId
-        let requested = tradeData.requested; // currentPlayerId will requested from tradeData.tradeWithPlayerId
-
-        // offered or requested cash cannot be negative
-        if (offered.cash < 0 || requested.cash < 0) {
-            console.log("Cash cannot be negative!");
-            return false;
-        }
-
-        // all offered squares must belong to currentPlayerId
-        if (offered.squares && offered.squares.length > 0) {
-            for (let i = 0; i < offered.squares.length; i++) {
-                if (rooms[currentRoomId].getSquareOwner(offered.squares[i]) !== currentPlayerId) {
-                    console.log(offered.squares[i] + " does not belong to " + currentPlayerId);
-                    return false;
-                }
-            }
-        }
-
-        // all requested squares must belong to tradeData.tradeWithPlayerId
-        if (requested.squares && requested.squares.length > 0) {
-            for (let i = 0; i < requested.squares.length; i++) {
-                if (rooms[currentRoomId].getSquareOwner(requested.squares[i]) !== tradeData.tradeWithPlayerId) {
-                    console.log(requested.squares[i] + " does not belong to " + tradeData.tradeWithPlayerId);
-                    return false;
-                }
-            }
-        }
-
-        return true;
     }
 }
 
