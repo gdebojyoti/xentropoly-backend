@@ -454,11 +454,16 @@ function _onConnection (socket) {
             oldNextTurn = rooms[currentRoomId].nextTurn,
             index = playersArr.indexOf(oldNextTurn);
 
+        let cyclesCompleted = 0; // prevent infinite loop when all players have been declared bankrupt
+
         // select the next player who is active (i.e., ignore bankrupt players)
         do {
             index = index + 1 < playersArr.length ? index + 1 : 0;
             rooms[currentRoomId].nextTurn = playersArr[index];
-        } while (!rooms[currentRoomId].players[playersArr[index]].isActive)
+            if (index === 0) {
+                cyclesCompleted++;
+            }
+        } while (!rooms[currentRoomId].players[playersArr[index]].isActive && cyclesCompleted < 2)
 
         console.log("Next turn:", rooms[currentRoomId].nextTurn);
     }
