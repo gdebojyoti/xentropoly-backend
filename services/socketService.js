@@ -286,6 +286,8 @@ function _onConnection (socket) {
     function requestMortgage (data) {
         // keep track of squares that are actually being mortgaged
         let squaresMortgaged = [];
+        // keep track of cash that will be earned by mortgaging
+        let cashFromMortgage = 0;
 
         for (let squareId of data.squares) {
 
@@ -304,8 +306,8 @@ function _onConnection (socket) {
                 continue;
             }
 
-            // add funds (half of price) to currentPlayerId
-            _addFunds(squareDetails.price / 2);
+            // add mortgaging funds to cashFromMortgage
+            cashFromMortgage += squareDetails.mortgage;
 
             // set isMortgaged to true for squareId
             squareDetails.isMortgaged = true;
@@ -315,12 +317,19 @@ function _onConnection (socket) {
 
         }
 
-        // inform everyone in currentRoomId that currentPlayerId has mortgaged property
-        io.sockets.in(currentRoomId).emit("PROPERTY_MORTGAGED", {
-            playerId: currentPlayerId,
-            squares: squaresMortgaged,
-            msg: currentPlayerId + " mortgaged " + squaresMortgaged
-        });
+        // add funds and trigger message via socket if at least one valid property is mortgaged
+        if (squaresMortgaged.length) {
+            // add mortgaging funds to currentPlayerId
+            _addFunds(cashFromMortgage);
+
+            // inform everyone in currentRoomId that currentPlayerId has mortgaged property
+            io.sockets.in(currentRoomId).emit("PROPERTY_MORTGAGED", {
+                playerId: currentPlayerId,
+                squares: squaresMortgaged,
+                cash: cashFromMortgage,
+                msg: currentPlayerId + " mortgaged " + squaresMortgaged + " for " + cashFromMortgage
+            });
+        }
     }
 
     function requestUnmortgage (data) {
