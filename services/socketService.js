@@ -1,3 +1,5 @@
+const Room = require('../models/room.js');
+
 var io,
     mapData;
 
@@ -50,8 +52,8 @@ function _onConnection (socket) {
         console.log('Client disconnected', currentPlayerId);
 
         // remove current player from current room
-        if (rooms[currentRoomId] && rooms[currentRoomId].players[currentPlayerId]) {
-            delete rooms[currentRoomId].players[currentPlayerId];
+        if (rooms[currentRoomId]) {
+            rooms[currentRoomId].deletePlayer(currentPlayerId);
         }
 
         // remove corresponding entry from allOnlinePlayers
@@ -76,10 +78,9 @@ function _onConnection (socket) {
         } while (rooms[currentRoomId]);
 
         // create new entry in rooms for new currentRoomId if it doesn't already exist; store currentPlayerId against it
-        rooms[currentRoomId] = JSON.parse(JSON.stringify(sampleRoom));
-        rooms[currentRoomId].players[currentPlayerId] = JSON.parse(JSON.stringify(playerInitialStats));
-        rooms[currentRoomId].nextTurn = currentPlayerId;
-        rooms[currentRoomId].squares = JSON.parse(JSON.stringify(mapData.squares));
+        if (!rooms[currentRoomId]) {
+            rooms[currentRoomId] = new Room (currentRoomId, currentPlayerId, mapData.squares);
+        }
 
         _updateAllPlayerList(currentPlayerId, currentRoomId);
 
@@ -104,9 +105,9 @@ function _onConnection (socket) {
             // get hostPlayerId's current room id
             currentRoomId = allOnlinePlayers[hostPlayerId].rooms[0];
 
-            if (rooms[currentRoomId] && rooms[currentRoomId].players) {
+            if (rooms[currentRoomId] && rooms[currentRoomId].getAllPlayers()) {
 
-                rooms[currentRoomId].players[currentPlayerId] = JSON.parse(JSON.stringify(playerInitialStats));
+                rooms[currentRoomId].createPlayer(currentPlayerId);
 
                 _updateAllPlayerList(currentPlayerId, currentRoomId);
 
@@ -167,13 +168,13 @@ function _onConnection (socket) {
         let spaces = _rollDice();
 
         // add "spaces" to player's current position; after crossing 39, player goes to 0
-        currentSquareId = rooms[currentRoomId].players[currentPlayerId].position + spaces;
+        currentSquareId = rooms[currentRoomId].getPlayerPosition(currentPlayerId) + spaces;
         if (currentSquareId > 39) {
             currentSquareId -= 40;
         }
 
         // move player to computed position
-        rooms[currentRoomId].players[currentPlayerId].position = currentSquareId;
+        rooms[currentRoomId].setPlayerPosition(currentPlayerId, currentSquareId);
 
         // inform everyone in currentRoomId that currentPlayerId has moved to currentSquareId
         io.sockets.in(currentRoomId).emit("PLAYER_MOVED", {
@@ -198,7 +199,7 @@ function _onConnection (socket) {
         }
 
         // get details of square
-        let squareDetails = rooms[currentRoomId].squares[currentSquareId];
+        let squareDetails = rooms[currentRoomId].getSquareDetails(currentSquareId);
 
         // if player opted to buy property
         if (data.response) {
@@ -206,7 +207,7 @@ function _onConnection (socket) {
             squareDetails.owner = currentPlayerId;
 
             // deduct funds from player
-            _removeFunds(squareDetails.price);
+            rooms[currentRoomId].addPlayerCash(currentPlayerId, -squareDetails.price);
 
             // inform everyone in currentRoomId that currentPlayerId has bought the property
             io.sockets.in(currentRoomId).emit("PROPERTY_PURCHASED", {
@@ -222,7 +223,7 @@ function _onConnection (socket) {
 
     function tradeProposalInitiated (data) {
         // ignore if a trade is currently in progress
-        if (rooms[currentRoomId].currentTrade) {
+        if (rooms[currentRoomId].getCurrentTrade()) {
             return;
         }
 
@@ -240,50 +241,50 @@ function _onConnection (socket) {
         };
 
         // save details of current trade proposal
-        rooms[currentRoomId].currentTrade = currentTrade;
+        rooms[currentRoomId].setCurrentTrade(currentTrade);
 
         // inform other players in currentRoomId that currentPlayerId has proposed a trade with tradeWithPlayerId
         socket.broadcast.to(currentRoomId).emit("TRADE_PROPOSAL_RECEIVED", currentTrade);
     }
 
     function tradeProposalResponded (data) {
+        const tradeData = rooms[currentRoomId].getCurrentTrade();
         // ignore if no trade is found or invalid player responds to trade proposal
-        if (!rooms[currentRoomId].currentTrade || rooms[currentRoomId].currentTrade.proposedTo !== currentPlayerId) {
+        if (!tradeData || tradeData.proposedTo !== currentPlayerId) {
             console.warn("invalid player cannot respond to trade offer");
             return;
         }
 
         // make trade exchange happen; assign cash and properties
         if (data.response) {
-            let tradeData = rooms[currentRoomId].currentTrade;
-            let offered = tradeData.offered;
-            let requested = tradeData.requested;
+            let offered = tradeData.offered,
+                requested = tradeData.requested;
 
             // alter funds
             if (offered.cash > 0) {
                 // add funds to tradeData.proposedTo
-                _addFunds(offered.cash, tradeData.proposedTo);
+                rooms[currentRoomId].addPlayerCash(tradeData.proposedTo, offered.cash);
                 // remove funds from tradeData.proposedBy
-                _removeFunds(offered.cash, tradeData.proposedBy);
+                rooms[currentRoomId].addPlayerCash(tradeData.proposedBy, -offered.cash);
             }
             if (requested.cash > 0) {
                 // add funds to tradeData.proposedBy
-                _addFunds(offered.cash, tradeData.proposedBy);
+                rooms[currentRoomId].addPlayerCash(tradeData.proposedBy, offered.cash);
                 // remove funds from tradeData.proposedTo
-                _removeFunds(offered.cash, tradeData.proposedTo);
+                rooms[currentRoomId].addPlayerCash(tradeData.proposedTo, -offered.cash);
             }
 
             // assign properties
             if (offered.squares && offered.squares.length > 0) {
                 // set owner of all offered properties to tradeData.proposedTo
                 for (let i = 0; i < offered.squares.length; i++) {
-                    rooms[currentRoomId].squares[offered.squares[i]].owner = tradeData.proposedTo;
+                    rooms[currentRoomId].setSquareOwner(offered.squares[i], tradeData.proposedTo);
                 }
             }
             if (requested.squares && requested.squares.length > 0) {
                 // set owner of all received properties to tradeData.proposedBy
                 for (let i = 0; i < requested.squares.length; i++) {
-                    rooms[currentRoomId].squares[requested.squares[i]].owner = tradeData.proposedBy;
+                    rooms[currentRoomId].setSquareOwner(requested.squares[i], tradeData.proposedBy);
                 }
             }
 
@@ -295,7 +296,7 @@ function _onConnection (socket) {
         }
 
         // conclude current trade (set it to null)
-        rooms[currentRoomId].currentTrade = null;
+        rooms[currentRoomId].setCurrentTrade(null);
     }
 
     function requestMortgage (data) {
@@ -307,7 +308,7 @@ function _onConnection (socket) {
         for (let squareId of data.squares) {
 
             // get details of square
-            let squareDetails = rooms[currentRoomId].squares[squareId];
+            const squareDetails = rooms[currentRoomId].getSquareDetails(squareId);
 
             // ignore & continue if squareId does not belong to currentPlayerId
             if (squareDetails.owner !== currentPlayerId) {
@@ -335,7 +336,7 @@ function _onConnection (socket) {
         // add funds and trigger message via socket if at least one valid property is mortgaged
         if (squaresMortgaged.length) {
             // add mortgaging funds to currentPlayerId
-            _addFunds(cashFromMortgage);
+            rooms[currentRoomId].addPlayerCash(currentPlayerId, cashFromMortgage);
 
             // inform everyone in currentRoomId that currentPlayerId has mortgaged property
             io.sockets.in(currentRoomId).emit("PROPERTY_MORTGAGED", {
@@ -356,7 +357,7 @@ function _onConnection (socket) {
         for (let squareId of data.squares) {
 
             // get details of square
-            let squareDetails = rooms[currentRoomId].squares[squareId];
+            const squareDetails = rooms[currentRoomId].getSquareDetails(squareId);
 
             // ignore & continue if squareId does not belong to currentPlayerId
             if (squareDetails.owner !== currentPlayerId) {
@@ -390,7 +391,7 @@ function _onConnection (socket) {
         // remove funds and trigger message via socket if at least one valid property is unmortgaged
         if (squaresUnmortgaged.length) {
             // remove unmortgaging funds from currentPlayerId
-            _removeFunds(costForUnmortgage);
+            rooms[currentRoomId].addPlayerCash(currentPlayerId, -costForUnmortgage);
 
             // inform everyone in currentRoomId that currentPlayerId has unmortgaged property
             io.sockets.in(currentRoomId).emit("PROPERTY_UNMORTGAGED", {
@@ -413,15 +414,15 @@ function _onConnection (socket) {
         // inform everyone in currentRoomId of new joinee
         io.sockets.in(currentRoomId).emit("JOINED_SESSION", {
             playerId: currentPlayerId,
-            players: rooms[currentRoomId].players,
+            players: rooms[currentRoomId].getAllPlayers(),
             room: rooms[currentRoomId],
             msg: currentPlayerId + " joining " + currentRoomId
         });
     }
 
     function _triggerBankruptcy (playerId) {
-        playerId = playerId || currentPlayerId
-        rooms[currentRoomId].players[playerId].isActive = false
+        playerId = playerId || currentPlayerId;
+        rooms[currentRoomId].setPlayerActiveStatus(playerId, false);
 
         // inform everyone in currentRoomId that playerId is bankrupt
         io.sockets.in(currentRoomId).emit("PLAYER_BANKRUPT", {
@@ -432,7 +433,7 @@ function _onConnection (socket) {
 
     // check if this is current player's turn
     function _isCurrentPlayersTurn () {
-        return rooms[currentRoomId].nextTurn === currentPlayerId;
+        return rooms[currentRoomId].getNextTurn() === currentPlayerId;
     }
 
     // roll dice: get random integer between 2 & 12
@@ -450,8 +451,8 @@ function _onConnection (socket) {
 
     // update next turn
     function _updateNextTurn () {
-        let playersArr = Object.keys(rooms[currentRoomId].players),
-            oldNextTurn = rooms[currentRoomId].nextTurn,
+        let playersArr = Object.keys(rooms[currentRoomId].getAllPlayers()),
+            oldNextTurn = rooms[currentRoomId].getNextTurn(),
             index = playersArr.indexOf(oldNextTurn);
 
         let cyclesCompleted = 0; // prevent infinite loop when all players have been declared bankrupt
@@ -459,19 +460,19 @@ function _onConnection (socket) {
         // select the next player who is active (i.e., ignore bankrupt players)
         do {
             index = index + 1 < playersArr.length ? index + 1 : 0;
-            rooms[currentRoomId].nextTurn = playersArr[index];
+            rooms[currentRoomId].setNextTurn(playersArr[index]);
             if (index === 0) {
                 cyclesCompleted++;
             }
-        } while (!rooms[currentRoomId].players[playersArr[index]].isActive && cyclesCompleted < 2)
+        } while (!rooms[currentRoomId].getPlayerActiveStatus(playersArr[index]) && cyclesCompleted < 2)
 
-        console.log("Next turn:", rooms[currentRoomId].nextTurn);
+        console.log("Next turn:", rooms[currentRoomId].getNextTurn());
     }
 
     // execute whatever is on square
     function _executeSquare () {
         // get details of square
-        let squareDetails = rooms[currentRoomId].squares[currentSquareId];
+        let squareDetails = rooms[currentRoomId].getSquareDetails(currentSquareId);
 
         switch (squareDetails.type) {
             // for property square: if unowned, opt to buy; if owned by others, pay rent
@@ -486,9 +487,9 @@ function _onConnection (socket) {
                 } else if (squareDetails.owner !== currentPlayerId) {
                     let rent = squareDetails.rent;
                     // remove funds from current player
-                    _removeFunds(rent);
+                    rooms[currentRoomId].addPlayerCash(currentPlayerId, -rent);
                     // add funds to square owner
-                    _addFunds(rent, squareDetails.owner);
+                    rooms[currentRoomId].addPlayerCash(squareDetails.owner, rent);
                     io.sockets.in(currentRoomId).emit("RENT_PAID", {
                         owner: squareDetails.owner,
                         payee: currentPlayerId,
@@ -507,31 +508,7 @@ function _onConnection (socket) {
 
     // get amount of funds player (or current player, if none specified) currently has
     function _getFunds (playerId) {
-        return rooms[currentRoomId].players[playerId || currentPlayerId].cash;
-    }
-
-    // add funds to player (or current player, if none specified)
-    function _addFunds (amount, playerId) {
-        playerId = playerId || currentPlayerId;
-
-        // ignore if no player is found
-        if (!rooms[currentRoomId].players[playerId]) {
-            return;
-        }
-
-        rooms[currentRoomId].players[playerId].cash += amount;
-    }
-
-    // deduct funds from player (or current player, if none specified)
-    function _removeFunds (amount, playerId) {
-        playerId = playerId || currentPlayerId;
-
-        // ignore if no player is found
-        if (!rooms[currentRoomId].players[playerId]) {
-            return;
-        }
-
-        rooms[currentRoomId].players[playerId].cash -= amount;
+        return rooms[currentRoomId].getPlayerCash(playerId || currentPlayerId);
     }
 
     // check if trade proposal if valid
@@ -550,7 +527,7 @@ function _onConnection (socket) {
         // all offered squares must belong to currentPlayerId
         if (offered.squares && offered.squares.length > 0) {
             for (let i = 0; i < offered.squares.length; i++) {
-                if (rooms[currentRoomId].squares[offered.squares[i]].owner !== currentPlayerId) {
+                if (rooms[currentRoomId].getSquareOwner(offered.squares[i]) !== currentPlayerId) {
                     console.log(offered.squares[i] + " does not belong to " + currentPlayerId);
                     return false;
                 }
@@ -560,7 +537,7 @@ function _onConnection (socket) {
         // all requested squares must belong to tradeData.tradeWithPlayerId
         if (requested.squares && requested.squares.length > 0) {
             for (let i = 0; i < requested.squares.length; i++) {
-                if (rooms[currentRoomId].squares[requested.squares[i]].owner !== tradeData.tradeWithPlayerId) {
+                if (rooms[currentRoomId].getSquareOwner(requested.squares[i]) !== tradeData.tradeWithPlayerId) {
                     console.log(requested.squares[i] + " does not belong to " + tradeData.tradeWithPlayerId);
                     return false;
                 }
