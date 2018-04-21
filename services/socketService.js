@@ -18,9 +18,10 @@ var rooms = {}, // list of all rooms
         squares: null,
         currentTrade: null
     },
-    samplePlayerDetails = {
+    playerInitialStats = {
         position: 0,
-        cash: 1500
+        cash: 1500,
+        isActive: true
     };
 
 function _onConnection (socket) {
@@ -42,6 +43,7 @@ function _onConnection (socket) {
     socket.on("TRADE_PROPOSAL_RESPONDED", tradeProposalResponded);
     socket.on("REQUEST_MORTGAGE", requestMortgage);
     socket.on("REQUEST_UNMORTGAGE", requestUnmortgage);
+    socket.on("DECLARE_BANKRUPTCY", declareBankruptcy);
 
     // on client disconnect
     function onDisconnect () {
@@ -75,7 +77,7 @@ function _onConnection (socket) {
 
         // create new entry in rooms for new currentRoomId if it doesn't already exist; store currentPlayerId against it
         rooms[currentRoomId] = JSON.parse(JSON.stringify(sampleRoom));
-        rooms[currentRoomId].players[currentPlayerId] = JSON.parse(JSON.stringify(samplePlayerDetails));
+        rooms[currentRoomId].players[currentPlayerId] = JSON.parse(JSON.stringify(playerInitialStats));
         rooms[currentRoomId].nextTurn = currentPlayerId;
         rooms[currentRoomId].squares = JSON.parse(JSON.stringify(mapData.squares));
 
@@ -104,7 +106,7 @@ function _onConnection (socket) {
 
             if (rooms[currentRoomId] && rooms[currentRoomId].players) {
 
-                rooms[currentRoomId].players[currentPlayerId] = JSON.parse(JSON.stringify(samplePlayerDetails));
+                rooms[currentRoomId].players[currentPlayerId] = JSON.parse(JSON.stringify(playerInitialStats));
 
                 _updateAllPlayerList(currentPlayerId, currentRoomId);
 
@@ -128,6 +130,19 @@ function _onConnection (socket) {
                 msg: "Could not find host player with id " + hostPlayerId
             });
         }
+    }
+
+    function declareBankruptcy () {
+        // check if it is currentPlayerId's turn
+        if (!_isCurrentPlayersTurn()) {
+            socket.emit("INVALID_TURN");
+            return;
+        }
+
+        _triggerBankruptcy();
+
+        // trigger next player's turn
+        _updateNextTurn();
     }
 
     // chat message sent by currentPlayerId
@@ -286,6 +301,8 @@ function _onConnection (socket) {
     function requestMortgage (data) {
         // keep track of squares that are actually being mortgaged
         let squaresMortgaged = [];
+        // keep track of cash that will be earned by mortgaging
+        let cashFromMortgage = 0;
 
         for (let squareId of data.squares) {
 
@@ -304,8 +321,8 @@ function _onConnection (socket) {
                 continue;
             }
 
-            // add funds (half of price) to currentPlayerId
-            _addFunds(squareDetails.price / 2);
+            // add mortgaging funds to cashFromMortgage
+            cashFromMortgage += squareDetails.mortgage;
 
             // set isMortgaged to true for squareId
             squareDetails.isMortgaged = true;
@@ -315,50 +332,74 @@ function _onConnection (socket) {
 
         }
 
-        // inform everyone in currentRoomId that currentPlayerId has mortgaged property
-        io.sockets.in(currentRoomId).emit("PROPERTY_MORTGAGED", {
-            playerId: currentPlayerId,
-            squares: squaresMortgaged,
-            msg: currentPlayerId + " mortgaged " + squaresMortgaged
-        });
+        // add funds and trigger message via socket if at least one valid property is mortgaged
+        if (squaresMortgaged.length) {
+            // add mortgaging funds to currentPlayerId
+            _addFunds(cashFromMortgage);
+
+            // inform everyone in currentRoomId that currentPlayerId has mortgaged property
+            io.sockets.in(currentRoomId).emit("PROPERTY_MORTGAGED", {
+                playerId: currentPlayerId,
+                squares: squaresMortgaged,
+                cash: cashFromMortgage,
+                msg: currentPlayerId + " mortgaged " + squaresMortgaged + " for " + cashFromMortgage
+            });
+        }
     }
 
     function requestUnmortgage (data) {
-        // get details of square
-        let squareDetails = rooms[currentRoomId].squares[data.squareId];
+        // keep track of squares that are actually being unmortgaged
+        let squaresUnmortgaged = [];
+        // keep track of cash that will be deducted for paying off mortgages
+        let costForUnmortgage = 0;
 
-        // ignore if data.squareId does not belong to currentPlayerId
-        if (squareDetails.owner !== currentPlayerId) {
-            console.log(data.squareId + " does not belong to " + currentPlayerId);
-            return;
+        for (let squareId of data.squares) {
+
+            // get details of square
+            let squareDetails = rooms[currentRoomId].squares[squareId];
+
+            // ignore & continue if squareId does not belong to currentPlayerId
+            if (squareDetails.owner !== currentPlayerId) {
+                console.log(squareId + " does not belong to " + currentPlayerId);
+                continue;
+            }
+
+            // ignore & continue if squareId is not mortgaged
+            if (!squareDetails.isMortgaged) {
+                console.log(squareId + " is not mortgaged");
+                continue;
+            }
+
+            // add unmortgaging funds to costForUnmortgage
+            costForUnmortgage += squareDetails.unmortgage;
+
+            // set isMortgaged to false for squareId
+            squareDetails.isMortgaged = false;
+
+            // add square ID to array on successful pay off
+            squaresUnmortgaged.push(squareId);
+
         }
-
-        // ignore if data.squareId is not already mortgaged
-        if (!squareDetails.isMortgaged) {
-            console.log(data.squareId + " is not mortgaged");
-            return;
-        }
-
-        // compute cost to pay off mortgage
-        let cost = squareDetails.price / 2 * 1.1;
 
         // ignore if player has less funds than mortgage payoff cost
-        if (_getFunds() < cost) {
+        if (_getFunds() < costForUnmortgage) {
+            console.log("Player cannot afford to unmortgage selected properties");
             return;
         }
 
-        // remove funds (half of price) to currentPlayerId
-        _removeFunds(cost);
+        // remove funds and trigger message via socket if at least one valid property is unmortgaged
+        if (squaresUnmortgaged.length) {
+            // remove unmortgaging funds from currentPlayerId
+            _removeFunds(costForUnmortgage);
 
-        // set isMortgaged to false for data.squareId
-        squareDetails.isMortgaged = false;
-
-        // inform everyone in currentRoomId that currentPlayerId has paid off the mortgage
-        io.sockets.in(currentRoomId).emit("PROPERTY_UNMORTGAGED", {
-            playerId: currentPlayerId,
-            squareId: data.squareId,
-            msg: currentPlayerId + " has paid off his mortgage on " + squareDetails.propertyName + " with " + squareDetails.price / 2 * 1.1
-        });
+            // inform everyone in currentRoomId that currentPlayerId has unmortgaged property
+            io.sockets.in(currentRoomId).emit("PROPERTY_UNMORTGAGED", {
+                playerId: currentPlayerId,
+                squares: squaresUnmortgaged,
+                cash: costForUnmortgage,
+                msg: currentPlayerId + " paid off his mortgage on " + squaresUnmortgaged + " with " + costForUnmortgage
+            });
+        }
     }
 
 
@@ -375,6 +416,17 @@ function _onConnection (socket) {
             players: rooms[currentRoomId].players,
             room: rooms[currentRoomId],
             msg: currentPlayerId + " joining " + currentRoomId
+        });
+    }
+
+    function _triggerBankruptcy (playerId) {
+        playerId = playerId || currentPlayerId
+        rooms[currentRoomId].players[playerId].isActive = false
+
+        // inform everyone in currentRoomId that playerId is bankrupt
+        io.sockets.in(currentRoomId).emit("PLAYER_BANKRUPT", {
+            playerId: playerId,
+            msg: playerId + " is bankrupt"
         });
     }
 
@@ -402,7 +454,17 @@ function _onConnection (socket) {
             oldNextTurn = rooms[currentRoomId].nextTurn,
             index = playersArr.indexOf(oldNextTurn);
 
-        rooms[currentRoomId].nextTurn = playersArr[index + 1 < playersArr.length ? index + 1 : 0];
+        let cyclesCompleted = 0; // prevent infinite loop when all players have been declared bankrupt
+
+        // select the next player who is active (i.e., ignore bankrupt players)
+        do {
+            index = index + 1 < playersArr.length ? index + 1 : 0;
+            rooms[currentRoomId].nextTurn = playersArr[index];
+            if (index === 0) {
+                cyclesCompleted++;
+            }
+        } while (!rooms[currentRoomId].players[playersArr[index]].isActive && cyclesCompleted < 2)
+
         console.log("Next turn:", rooms[currentRoomId].nextTurn);
     }
 
