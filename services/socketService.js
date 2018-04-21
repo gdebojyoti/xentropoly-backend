@@ -18,9 +18,10 @@ var rooms = {}, // list of all rooms
         squares: null,
         currentTrade: null
     },
-    samplePlayerDetails = {
+    playerInitialStats = {
         position: 0,
-        cash: 1500
+        cash: 1500,
+        isActive: true
     };
 
 function _onConnection (socket) {
@@ -42,6 +43,7 @@ function _onConnection (socket) {
     socket.on("TRADE_PROPOSAL_RESPONDED", tradeProposalResponded);
     socket.on("REQUEST_MORTGAGE", requestMortgage);
     socket.on("REQUEST_UNMORTGAGE", requestUnmortgage);
+    socket.on("DECLARE_BANKRUPTCY", declareBankruptcy);
 
     // on client disconnect
     function onDisconnect () {
@@ -75,7 +77,7 @@ function _onConnection (socket) {
 
         // create new entry in rooms for new currentRoomId if it doesn't already exist; store currentPlayerId against it
         rooms[currentRoomId] = JSON.parse(JSON.stringify(sampleRoom));
-        rooms[currentRoomId].players[currentPlayerId] = JSON.parse(JSON.stringify(samplePlayerDetails));
+        rooms[currentRoomId].players[currentPlayerId] = JSON.parse(JSON.stringify(playerInitialStats));
         rooms[currentRoomId].nextTurn = currentPlayerId;
         rooms[currentRoomId].squares = JSON.parse(JSON.stringify(mapData.squares));
 
@@ -104,7 +106,7 @@ function _onConnection (socket) {
 
             if (rooms[currentRoomId] && rooms[currentRoomId].players) {
 
-                rooms[currentRoomId].players[currentPlayerId] = JSON.parse(JSON.stringify(samplePlayerDetails));
+                rooms[currentRoomId].players[currentPlayerId] = JSON.parse(JSON.stringify(playerInitialStats));
 
                 _updateAllPlayerList(currentPlayerId, currentRoomId);
 
@@ -128,6 +130,19 @@ function _onConnection (socket) {
                 msg: "Could not find host player with id " + hostPlayerId
             });
         }
+    }
+
+    function declareBankruptcy () {
+        // check if it is currentPlayerId's turn
+        if (!_isCurrentPlayersTurn()) {
+            socket.emit("INVALID_TURN");
+            return;
+        }
+
+        _triggerBankruptcy();
+
+        // trigger next player's turn
+        _updateNextTurn();
     }
 
     // chat message sent by currentPlayerId
@@ -404,6 +419,17 @@ function _onConnection (socket) {
         });
     }
 
+    function _triggerBankruptcy (playerId) {
+        playerId = playerId || currentPlayerId
+        rooms[currentRoomId].players[playerId].isActive = false
+
+        // inform everyone in currentRoomId that playerId is bankrupt
+        io.sockets.in(currentRoomId).emit("PLAYER_BANKRUPT", {
+            playerId: playerId,
+            msg: playerId + " is bankrupt"
+        });
+    }
+
     // check if this is current player's turn
     function _isCurrentPlayersTurn () {
         return rooms[currentRoomId].nextTurn === currentPlayerId;
@@ -428,7 +454,12 @@ function _onConnection (socket) {
             oldNextTurn = rooms[currentRoomId].nextTurn,
             index = playersArr.indexOf(oldNextTurn);
 
-        rooms[currentRoomId].nextTurn = playersArr[index + 1 < playersArr.length ? index + 1 : 0];
+        // select the next player who is active (i.e., ignore bankrupt players)
+        do {
+            index = index + 1 < playersArr.length ? index + 1 : 0;
+            rooms[currentRoomId].nextTurn = playersArr[index];
+        } while (!rooms[currentRoomId].players[playersArr[index]].isActive)
+
         console.log("Next turn:", rooms[currentRoomId].nextTurn);
     }
 
