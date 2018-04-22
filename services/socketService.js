@@ -11,7 +11,7 @@ module.exports = function(server, data) {
 };
 
 const rooms = {}, // list of all rooms
-    allOnlinePlayers = {}, // list of all players who are currently online
+    allOnlinePlayers = {}; // list of all players who are currently online
 
 function _onConnection (socket) {
     setInterval(() => io.emit('time', new Date().toTimeString()), 1000);
