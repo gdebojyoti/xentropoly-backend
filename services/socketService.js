@@ -12,19 +12,6 @@ module.exports = function(server, data) {
 
 const rooms = {}, // list of all rooms
     allOnlinePlayers = {}, // list of all players who are currently online
-    sampleRoom = {
-        // isPlaying: false,
-        players: {},
-        nextTurn: null,
-        // diceRolled: false,
-        squares: null,
-        currentTrade: null
-    },
-    playerInitialStats = {
-        position: 0,
-        cash: 1500,
-        isActive: true
-    };
 
 function _onConnection (socket) {
     setInterval(() => io.emit('time', new Date().toTimeString()), 1000);
@@ -49,7 +36,7 @@ function _onConnection (socket) {
 
     // on client disconnect
     function onDisconnect () {
-        console.log('Client disconnected', currentPlayerId);
+        console.log('A user has disconnected', currentPlayerId);
 
         // remove current player from current room
         if (rooms[currentRoomId]) {
