@@ -14,7 +14,7 @@ class Room {
     // players
 
     addPlayer (playerId) {
-        this.players[playerId] = new Player (playerId);
+        this.players[playerId] = new Player ();
     }
 
     getAllPlayers () {

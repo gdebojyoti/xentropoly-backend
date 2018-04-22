@@ -1,5 +1,5 @@
 class Player {
-    constructor (playerId) {
+    constructor () {
         // this.name = playerName; // name to be displayed to other players
         this.position = 0;
         this.cash = 1500;
