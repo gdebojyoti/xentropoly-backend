@@ -277,7 +277,27 @@ class Room {
             }
         } while (!this.getPlayerActiveStatus(playersArr[index]) && cyclesCompleted < 2)
 
+        // set nextTurn to empty once all players have gone bankrupt
+        if (cyclesCompleted === 2) {
+            this.nextTurn = '';
+        }
+
         console.log("Next turn:", this.nextTurn);
+    }
+
+    // handle bankruptcy
+
+    // NOTE: Consider ways to distribute wealth among remaining players
+    freePlayerAssets (playerId) {
+        // free & unmortgage owned properties
+        const { disownedSquares, unmortgagedSquares } = _freeProperties.call(this, playerId);
+        
+        // TODO: break houses
+
+        return {
+            disownedSquares,
+            unmortgagedSquares
+        }
     }
 }
 
@@ -286,6 +306,30 @@ function _initializeRoom (playerId, squares) {
     this.addPlayer(playerId);
     this.setNextTurn(playerId);
     this.setSquares(squares);
+}
+
+// free & unmortgage owned properties
+function _freeProperties (playerId) {
+    let disownedSquares = [],
+        unmortgagedSquares = [];
+
+    for (let square of this.squares) {
+        // remove owner
+        if (square.owner === playerId) {
+            square.owner = "";
+            disownedSquares.push(square.id);
+
+            if (square.isMortgaged) {
+                square.isMortgaged = false;
+                unmortgagedSquares.push(square.id);
+            }
+        }
+    }
+
+    return {
+        disownedSquares,
+        unmortgagedSquares
+    };
 }
 
 module.exports = Room;
