@@ -313,9 +313,14 @@ function _onConnection (socket) {
         playerId = playerId || currentPlayerId;
         rooms[currentRoomId].setPlayerActiveStatus(playerId, false);
 
+        // free all assets belonging to player
+        const { disownedSquares, unmortgagedSquares } = rooms[currentRoomId].freePlayerAssets(playerId);
+
         // inform everyone in currentRoomId that playerId is bankrupt
         io.sockets.in(currentRoomId).emit("PLAYER_BANKRUPT", {
             playerId: playerId,
+            disownedSquares,
+            unmortgagedSquares,
             msg: playerId + " is bankrupt"
         });
     }
